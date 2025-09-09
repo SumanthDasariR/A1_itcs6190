@@ -1,0 +1,37 @@
+services:
+  # The PostgreSQL Database Service
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-appuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpw}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser} -d ${POSTGRES_DB:-appdb}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # The Python Application Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    # The 'depends_on' key with the 'service_healthy' condition ensures
+    # the app only starts after the database is ready to accept connections.
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-appuser}
+      DB_PASS: ${POSTGRES_PASSWORD:-secretpw}
+      DB_NAME: ${POSTGRES_DB:-appdb}
+      APP_TOP_N: "5"
+    # The 'volumes' key mounts the local './out' directory into the container's '/out'
+    # directory, so the output JSON file persists on your host machine.
+    volumes:
+      - ./out:/out
